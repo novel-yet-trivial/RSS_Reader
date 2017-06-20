@@ -1,0 +1,2 @@
+https://www.theverge.com/rss/index.xml
+http://www.osnews.com/files/recent.xml

@@ -12,6 +12,5 @@ Select an article from the list and see the content with the link to the website
 
 # TODO:
 <ul>
-<li>Make menu work - refreshing, adding/removing feeds</li>
 <li>Enable display of images available in the feed</li>
 </ul>

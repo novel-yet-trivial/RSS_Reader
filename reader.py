@@ -2,8 +2,12 @@ import feedparser
 from bs4 import BeautifulSoup
 from tkinter import *
 import webbrowser
+from PIL import Image, ImageTk
+import urllib.request
+from io import BytesIO
 
 
+# checks feeds.txt, get's the data and creates a dictionary with data for each article
 def get_data():
 
     with open('feeds.txt', 'r') as file:
@@ -19,9 +23,9 @@ def get_data():
                     soup = BeautifulSoup(str(entry.content), "html.parser")
                     try:
                         image = soup.find('img')['src']
-                        feeds[x] = (d.feed.title, entry.title, soup.find('img')['src'], soup.find('p').get_text(), entry.link)
-                    except TypeError as e:
-                        feeds[x] = (d.feed.title, entry.title, 'no_img', soup.find('p').get_text(), entry.link)
+                        feeds[x] = (d.feed.title, entry.title, image, soup.find('p').get_text(), entry.link)
+                    except TypeError:
+                        feeds[x] = (d.feed.title, entry.title, '', soup.find('p').get_text(), entry.link)
                     x += 1
 
             if d.version == 'rss20':
@@ -30,13 +34,13 @@ def get_data():
                     try:
                         image = soup.find('img')['src']
                         feeds[x] = (d.feed.title, entry.title, image, entry.description, entry.link)
-                    except TypeError as e:
-                        feeds[x] = (d.feed.title, entry.title, 'no_img', entry.description, entry.link)
+                    except TypeError:
+                        feeds[x] = (d.feed.title, entry.title, '', entry.description, entry.link)
 
                     x += 1
     return feeds
 
-
+# adding new feeds to feeds.txt
 def add_feed_window():
     add_window = Tk()
     add_window.title('Add New Feed')
@@ -55,7 +59,7 @@ def add_feed_window():
 
     add_window.mainloop()
 
-
+# removing feeds from feeds.txt
 def remove_feed():
     remove_window = Tk()
     remove_window.title('Remove RSS Feed')
@@ -64,8 +68,7 @@ def remove_feed():
         print(to_delete)
         with open('feeds.txt', 'r') as read:
             lines = read.readlines()
-            removed_breakline = [i.replace('\n','') for i in lines]
-            print(removed_breakline)
+            removed_breakline = [i.replace('\n', '') for i in lines]
         with open('feeds.txt', 'w') as write:
             for feed in removed_breakline:
                 if feed != to_delete.strip():
@@ -92,20 +95,40 @@ def main_window():
 
     v = StringVar()
     v.set('Select Article Above')
+
     txt = Label(window, textvariable=v, wraplength=550, anchor=W, justify=LEFT)
     txt.grid(row=10, column=0, padx=5, pady=5, sticky='swe', columnspan=2)
 
     def on_select(evt):
-            w = evt.widget
-            index = int(w.curselection()[0])
+        labels = []
+        w = evt.widget
+        index = int(w.curselection()[0])
 
-            def open_url():
-                webbrowser.open_new_tab(feeds[index + 1][4])
+        def open_url():
+            webbrowser.open_new_tab(feeds[index + 1][4])
 
-            v.set(feeds[index + 1][3])
+        v.set(feeds[index + 1][3])
+        image_url = feeds[index + 1][2]
 
-            link = Button(window, text='Visit Website', command=open_url)
-            link.grid(row=20, column=0, padx=5, pady=5, sticky='swe', columnspan=2)
+        # adding a label with image for the article
+        if image_url:
+            with urllib.request.urlopen(image_url) as u:
+                raw_data = u.read()
+            im = Image.open(BytesIO(raw_data))
+
+            resize = im.resize((550, 350), Image.ANTIALIAS)
+
+            image = ImageTk.PhotoImage(resize)
+            img = Label(window, image=image, width=500, height=300)
+            img.image = image
+            img.grid(row=15, column=0, padx=5, pady=5, sticky='swe', columnspan=2)
+            labels.append(img)
+        else:
+            for label in labels:
+                label.destroy()
+
+        link = Button(window, text='Visit Website', command=open_url)
+        link.grid(row=20, column=0, padx=5, pady=5, sticky='swe', columnspan=2)
 
     menubar = Menu(window)
     menubar.add_command(label="Add RSS Feed", command=add_feed_window)

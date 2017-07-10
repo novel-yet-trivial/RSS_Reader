@@ -59,6 +59,7 @@ def add_feed_window():
 
     add_window.mainloop()
 
+
 # removing feeds from feeds.txt
 def remove_feed():
     remove_window = Tk()

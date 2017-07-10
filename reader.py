@@ -23,6 +23,7 @@ from PIL import Image, ImageTk
 import urllib.request
 from io import BytesIO
 from functools import partial
+import threading
 
 IMG_SIZE = (550, 350)
 FEEDS_FILE = 'feeds.txt'
@@ -123,14 +124,11 @@ class MainWindow(tk.Tk):
         txt = tk.Label(self, textvariable=self.curr_text, wraplength=550, anchor=tk.W, justify=tk.LEFT)
         txt.grid(row=10, column=0, padx=5, pady=5, sticky='swe', columnspan=2)
 
-        self.img_lbl = tk.Label(self)
+        self.img_lbl = tk.Label(self, compound=tk.CENTER)
         self.img_lbl.grid(row=15, column=0, padx=5, pady=5, sticky='swe', columnspan=2)
 
         self.open_btn = tk.Button(self, text='Visit Website')
         self.open_btn.grid(row=20, column=0, padx=5, pady=5, sticky='swe', columnspan=2)
-
-        self.loading_lbl = tk.Label(self, text="LOADING FEEDS", font=('', '20'))
-        self.loading_lbl.place(relx=.5, rely=.5, anchor=tk.CENTER)
 
         menubar = tk.Menu(master)
         menubar.add_command(label="Add RSS Feed", command=partial(AddFeed, self))
@@ -139,13 +137,18 @@ class MainWindow(tk.Tk):
 
         self.config(menu=menubar)
 
-        self.after(100, self.load_feeds) # draw the GUI and then start loading the feeds (give the user something to see)
+        self.load_feeds()
 
     def load_feeds(self):
+        self.loading_lbl = tk.Label(self, text="LOADING FEEDS", font=('', '20'))
+        self.loading_lbl.place(relx=.5, rely=.5, anchor=tk.CENTER)
+        t = threading.Thread(target=self._load)
+        t.start()
+
+    def _load(self):
         self.feeds = get_data()
-        for key, feed in enumerate(self.feeds):
+        for key, feed in enumerate(self.feeds, 1):
             self.listbox.insert(key, '{0} : {1}'.format(*feed))
-            #~ self.listbox.insert(key, ' : '.join([str(feed[0]), str(feed[1])]))
         self.loading_lbl.destroy()
 
     def open_url(self, index):
@@ -157,19 +160,27 @@ class MainWindow(tk.Tk):
         self.curr_text.set(self.feeds[index][3])
         image_url = self.feeds[index][2]
 
-        # adding a label with image for the article
-        if image_url:
-            with urllib.request.urlopen(image_url) as u:
-                raw_data = u.read()
-            im = Image.open(BytesIO(raw_data))
-            resize = im.resize(IMG_SIZE, Image.ANTIALIAS)
-            image = ImageTk.PhotoImage(resize)
-        else:
-            image = tk.PhotoImage() # no image; load a blank image
+        # clear image
+        image = tk.PhotoImage()
         self.img_lbl.config(image=image)
         self.img_lbl.image = image
 
+        # adding a label with image for the article
+        if image_url:
+            self.img_lbl.config(text="Image loading, please wait...")
+            t = threading.Thread(target=self._load_img, args=(image_url,))
+            t.start()
+
         self.open_btn.config(command=partial(self.open_url, index))
+
+    def _load_img(self, image_url):
+        with urllib.request.urlopen(image_url) as u:
+            raw_data = u.read()
+        im = Image.open(BytesIO(raw_data))
+        resize = im.resize(IMG_SIZE, Image.ANTIALIAS)
+        image = ImageTk.PhotoImage(resize)
+        self.img_lbl.config(image=image, text='')
+        self.img_lbl.image = image
 
 if __name__ == '__main__':
     window = MainWindow()
